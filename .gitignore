@@ -1,0 +1,8 @@
+.idea
+.env
+app/composer/cache
+!app/composer/cache/.gitkeep
+src/*
+!src/.gitkeep
+nginx/log/*
+!nginx/log/.gitkeep

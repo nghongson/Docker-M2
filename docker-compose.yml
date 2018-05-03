@@ -1,0 +1,93 @@
+version: '3.3'
+services:
+  app:
+    build: app/php-fpm
+    working_dir: /public_html
+    environment:
+      - ENABLE_XDEBUG=false
+      - XDEBUG_CONFIG="remote_host=192.168.1.114"
+    links:
+      - 'mysql:mysql'
+    volumes:
+      - './src:/public_html'
+      - './app/composer/cache:/home/fpm_app/.composer/cache'
+      - './app/composer/auth.json:/home/fpm_app/.composer/auth.json'
+      - './app/php-fpm/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini'
+      - './app/php-fpm/conf.d/php-ext.ini:/usr/local/etc/php/conf.d/php-ext.ini'
+    ports:
+      - '9000:9000'
+    networks:
+      - frontend
+      - backend
+  cli:
+    build: app/php-cli
+    working_dir: /public_html
+    volumes:
+      - './src:/public_html'
+      - './app/composer/cache:/home/cli_app/.composer/cache'
+      - './app/composer/auth.json:/home/cli_app/.composer/auth.json'
+      - './app/php-cli/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini'
+      - './app/php-cli/conf.d/php-ext.ini:/usr/local/etc/php/conf.d/php-ext.ini'
+    environment:
+      - ENABLE_XDEBUG=false
+      - XDEBUG_CONFIG="remote_host=192.168.1.114"
+      - INSTALL_DB=true
+      - DB_HOST=mysql
+    env_file:
+      - database.env
+      - mage_setup.env
+    command: cron -f
+    ports:
+      - '9999:9000'
+    networks:
+      - backend
+  mysql:
+    image: 'mysql:5.7'
+    env_file:
+      - database.env
+    volumes:
+      - './mysql/conf.d:/etc/mysql/conf.d'
+    ports:
+      - '8082:3306'
+    networks:
+      - backend
+  webserver:
+    image: 'nginx:alpine'
+    working_dir: /public_html
+    volumes:
+      - './src:/public_html'
+      - './nginx/conf.d/mage2.conf:/etc/nginx/conf.d/default.conf'
+      - './nginx/setting/mage2.conf.sample:/etc/nginx/setting/mage2.conf.sample'
+      - './nginx/log/access.log:/var/log/nginx/application_access.log'
+      - './nginx/log/error.log:/var/log/nginx/application_error.log'
+    ports:
+      - '80:80'
+    links:
+      - 'app:php-fpm'
+    networks:
+      - frontend
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - '82:80'
+    links:
+      - 'mysql:mysql'
+    environment:
+      PMA_HOST: mysql
+    networks:
+      - backend
+  grunt:
+    build: app/grunt
+    volumes:
+      - './src:/public_html'
+    links:
+      - 'mysql:mysql'
+    networks:
+      - backend
+networks:
+  frontend:
+    external:
+      name: frontend_network
+  backend:
+    external:
+      name: backend_network

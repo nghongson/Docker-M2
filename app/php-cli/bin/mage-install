@@ -1,0 +1,55 @@
+#!/bin/sh
+set -ex
+
+if [ ! -f "composer.json" ]; then
+    echo "Creating Magento ($M2_VERSION) project from composer"
+    rm -rf ./*
+    composer create-project \
+        --repository-url=https://repo.magento.com/ \
+        magento/project-community-edition=$M2_VERSION \
+        --no-interaction \
+        .
+else
+    echo "Magento installation found in /public_html, installing composer dependencies"
+    composer install
+fi
+
+
+chown :www-data . -R
+
+if [ ! "$INSTALL_DB" = "false" ]; then
+    echo "Install Magento"
+    INSTALL_COMMAND="mage setup:install \
+        --db-host=$DB_HOST \
+        --db-name=$MYSQL_DATABASE \
+        --db-user=$MYSQL_USER \
+        --db-password=$MYSQL_PASSWORD \
+        --base-url=$BASE_URL \
+        --admin-firstname=$ADMIN_FIRSTNAME \
+        --admin-lastname=$ADMIN_LASTNAME \
+        --admin-email=$ADMIN_EMAIL \
+        --admin-user=$ADMIN_USER \
+        --admin-password=$ADMIN_PASSWORD"
+
+    # Use a separate value for secure base URL, if the variable is set
+    if [ -n "$SECURE_BASE_URL" ]; then
+        INSTALL_COMMAND="$INSTALL_COMMAND --base-url-secure=$SECURE_BASE_URL"
+    fi
+
+    # Only define a backend-frontname if the variable is set, or not empty.
+    if [ -n "$BACKEND_FRONTNAME" ]; then
+        INSTALL_COMMAND="$INSTALL_COMMAND --backend-frontname=$BACKEND_FRONTNAME"
+    fi
+
+    if [ "$SETUP_SAMPLE_DATA" = "true" ]; then
+      mage sampledata:deploy
+      composer update
+      INSTALL_COMMAND="$INSTALL_COMMAND --use-sample-data"
+    fi
+
+    $INSTALL_COMMAND
+    mage setup:upgrade
+    mage setup:static-content:deploy -f
+fi
+
+echo "Installation complete"
