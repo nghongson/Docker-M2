@@ -84,7 +84,7 @@ RUN chmod +x /usr/local/bin/mage-install
 
 RUN chown cli_app /public_html -R
 RUN chown cli_app /home/cli_app -R
-
+RUN apk add --no-cache --update busybox-suid
 USER cli_app
 
 CMD ["sh"]
